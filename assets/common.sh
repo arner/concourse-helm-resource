@@ -1,9 +1,35 @@
 #!/bin/bash
 set -e
 
+setup_ibmcloud() {
+  payload=$1
+
+  echo "Initializing IBM Cloud Kubernetes service..."
+
+  ibmcloud_api_url=$(jq -r '.source.ibmcloud.api_url // ""' < $payload)
+  ibmcloud_api_key=$(jq -r '.source.ibmcloud.api_key // ""' < $payload)
+  ibmcloud_organization=$(jq -r '.source.ibmcloud.organization // ""' < $payload)
+  ibmcloud_space=$(jq -r '.source.ibmcloud.space // ""' < $payload)
+  ibmcloud_cluster_name=$(jq -r '.source.ibmcloud.cluster_name // ""' < $payload)
+
+  ibmcloud login -a $ibmcloud_api_url --apikey $ibmcloud_api_key
+  ibmcloud target -o $ibmcloud_organization -s $ibmcloud_space
+
+  eval $(ibmcloud ks cluster-config $ibmcloud_cluster_name --export)
+
+  kubectl version
+}
+
 setup_kubernetes() {
   payload=$1
   source=$2
+
+  ibmcloud_api_url=$(jq -r '.source.ibmcloud.api_url // ""' < $payload)
+  if [ -n $ibmcloud_api_url ]; then
+    setup_ibmcloud $payload
+    return
+  fi
+
   # Setup kubectl
   cluster_url=$(jq -r '.source.cluster_url // ""' < $payload)
   if [ -z "$cluster_url" ]; then
